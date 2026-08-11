@@ -1,195 +1,390 @@
 # Smart Pyrolysis Thermal PID Control System
 
-Simulation and analysis of an ESP32-based closed-loop PID temperature control system for a first-order pyrolysis thermal process using Wokwi and GNU Octave.
+Simulation and analysis of an ESP32-based PID temperature control system for a first-order pyrolysis thermal process using **GNU Octave** and **Wokwi**.
 
 ## Project Overview
 
-This project explores the design and simulation of a PID-based thermal control system for a pyrolysis process.
+This project develops and evaluates a simulated closed-loop PID temperature control system for a pyrolysis thermal process.
 
-The objective is to regulate the process temperature at a desired setpoint using a simulated ESP32 controller, PWM-based heater control, and a first-order thermal process model.
+The project combines:
 
-The project includes:
-
-- Thermal process modelling
-- PID controller implementation
-- PWM heater control
+- First-order thermal process modelling
+- PID temperature control
+- PWM-based heater power control
 - Conditional-integration anti-windup
 - PID gain comparison
 - Setpoint tracking validation
 - GNU Octave analysis
 - ESP32 implementation in Wokwi
 
+> **Note:** This project is currently simulation-based. The thermal model parameters are assumed for control-system development and have not been identified from a physical pyrolysis reactor.
+
+---
+
 ## System Architecture
 
 The simulated closed-loop system follows this control structure:
 
-
+```text
 Temperature Setpoint
         |
         v
-   PID Controller
+  PID Controller
         |
         v
-   PWM Heater Power
+ PWM Heater Power
         |
         v
-   Thermal Process
+  Thermal Process
         |
         v
- Process Temperature
+Process Temperature
         |
-        +------ Feedback ------> PID Controller
+        +-------- Feedback --------> PID Controller
+```
 
+The controller continuously calculates the difference between the required temperature and the simulated process temperature and adjusts heater power accordingly.
 
-Thermal Process Model
+---
+
+## Thermal Process Model
 
 The thermal process is represented using a first-order model:
 
-tau(dT/dt) + T = Tambient + K*u
+```text
+τ(dT/dt) + T = Tambient + K·u
+```
 
 where:
 
-T = process temperature
-Tambient = ambient temperature
-u = heater input from 0 to 1
-K = process gain
-tau = thermal time constant
+- `T` = process temperature
+- `Tambient` = ambient temperature
+- `u` = normalized heater input from 0 to 1
+- `K` = process gain
+- `τ` = thermal time constant
 
-The simulation uses:
+The simulation parameters are:
 
-Ambient Temperature = 25 deg C
+```text
+Ambient Temperature = 25 °C
 Process Gain K       = 500
-Time Constant tau    = 60 s
+Time Constant τ      = 60 s
+```
 
-The corresponding transfer function is:
+The corresponding first-order transfer function is:
 
+```text
              500
 G(s) = ----------------
-          60s + 1
+           60s + 1
+```
 
-GNU Octave was used to examine the open-loop response of this model before implementing the closed-loop PID controller.
+GNU Octave was used to examine the response of this model and evaluate the closed-loop controller.
 
-PID Controller
+---
+
+## PID Controller
 
 The controller follows the standard PID control law:
 
-u(t) = Kp*e(t) + Ki*Integral(e(t)) + Kd*de(t)/dt
+```text
+u(t) = Kp·e(t) + Ki∫e(t)dt + Kd·de(t)/dt
+```
 
 where:
 
-Kp = proportional gain
-Ki = integral gain
-Kd = derivative gain
-e(t) = setpoint error
+- `Kp` = proportional gain
+- `Ki` = integral gain
+- `Kd` = derivative gain
+- `e(t)` = difference between setpoint and process temperature
 
-PWM output is limited to the ESP32 control range of 0-255, corresponding to 0-100% heater power.
+The controller output is limited to the ESP32 PWM range:
 
-Anti-Windup
+```text
+PWM = 0 to 255
+```
 
-Conditional integration was implemented to reduce integral windup when the controller output reaches the PWM saturation limits.
+This corresponds to:
 
-This produced a smoother transient response compared with resetting the integral term when the setpoint was crossed.
+```text
+Heater Power = 0% to 100%
+```
 
-PID Tuning Comparison
+---
 
-Three PID gain configurations were evaluated using the same thermal plant model.
+## Anti-Windup Implementation
 
-PID Set	Kp	Ki	Kd	Rise Time	Settling Time	Overshoot	Steady-State Error
-Set A	0.8	0.01	1.0	132.50 s	281.90 s	0.00%	0.32 deg C
-Set B	1.2	0.02	2.0	93.10 s	176.30 s	0.00%	0.00 deg C
-Set C	2.0	0.04	3.0	78.70 s	146.00 s	0.00%	0.00 deg C
+During controller development, output saturation was considered because the simulated heater cannot provide less than 0% or more than 100% power.
 
-Among the evaluated configurations, Set C produced the fastest rise and settling times while maintaining zero simulated overshoot and approximately zero steady-state error.
+A **conditional-integration anti-windup method** was implemented.
 
-Selected PID Gains
+The integral term is updated only when the controller is operating within the output limits or when the control error would move the controller away from saturation.
+
+This prevents excessive integral accumulation and improves the simulated transient response.
+
+---
+
+## PID Tuning Comparison
+
+Three PID gain configurations were evaluated using the same thermal process model.
+
+| PID Set | Kp | Ki | Kd | Rise Time | Settling Time | Overshoot | Steady-State Error |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Set A | 0.8 | 0.01 | 1.0 | 132.50 s | 281.90 s | 0.00% | 0.32 °C |
+| Set B | 1.2 | 0.02 | 2.0 | 93.10 s | 176.30 s | 0.00% | 0.00 °C |
+| **Set C** | **2.0** | **0.04** | **3.0** | **78.70 s** | **146.00 s** | **0.00%** | **0.00 °C** |
+
+Among the evaluated configurations, **Set C** produced the shortest rise and settling times while maintaining zero simulated overshoot and approximately zero steady-state error.
+
+### Selected PID Gains
+
+```text
 Kp = 2.0
 Ki = 0.04
 Kd = 3.0
+```
 
-These gains are the selected values among the tested configurations and are not claimed to be globally optimal PID parameters.
+These values represent the selected gains among the configurations evaluated in this simulation and are not claimed to be globally optimal PID parameters.
 
-Setpoint Tracking Validation
+---
 
-The selected controller was also evaluated under changing temperature references.
+## Performance Evaluation
+
+Controller performance was evaluated using:
+
+- Rise time
+- Settling time
+- Maximum temperature
+- Percentage overshoot
+- Steady-state error
+- Heater power requirement
+
+For the selected PID configuration and a **400 °C setpoint**, the simulation produced:
+
+```text
+Rise Time          = 78.70 s
+Settling Time      = 146.00 s
+Overshoot          = 0.00%
+Steady-State Error ≈ 0.00 °C
+```
+
+---
+
+## Setpoint Tracking Validation
+
+The controller was also evaluated under changing temperature references.
 
 The test profile was:
 
-0 - 250 s     -> 400 deg C
-250 - 500 s   -> 350 deg C
-500 - 750 s   -> 450 deg C
+```text
+0 - 250 s     → 400 °C
+250 - 500 s   → 350 °C
+500 - 750 s   → 450 °C
+```
 
-The controller tracked each setpoint change and returned to the required steady-state temperature without sustained oscillation in the simulation.
+The simulated controller successfully tracked each setpoint change and returned toward the required steady-state temperature without sustained oscillation.
 
-ESP32 / Wokwi Implementation
+This test was used to compare the response of PID Set B and PID Set C under changing operating references.
 
-The selected PID controller was implemented in Wokwi using an ESP32.
+---
 
-The simulation includes:
+## ESP32 / Wokwi Implementation
 
-PID control execution
-PWM heater output
-thermal process simulation
-output saturation
-conditional-integration anti-windup
-serial monitoring of:
-setpoint
-process temperature
-PWM output
-heater power
+The selected controller was implemented using an **ESP32 simulation in Wokwi**.
 
-For the 400 deg C operating point, the final steady-state result was approximately:
+The implementation includes:
 
-Setpoint       = 400.00 deg C
-Temperature    = 400.00 deg C
+- PID calculation
+- PWM-based heater control
+- First-order thermal process simulation
+- PWM output saturation
+- Conditional-integration anti-windup
+- Real-time serial monitoring
+
+The serial output reports:
+
+```text
+Setpoint
+Process Temperature
+PWM Output
+Heater Power (%)
+```
+
+At the 400 °C steady-state operating point, the Wokwi simulation produced approximately:
+
+```text
+Setpoint       = 400.00 °C
+Temperature    = 400.00 °C
 PWM Output     = 191.25
 Heater Power   = 75.00%
+```
 
-The 75% steady-state heater power is consistent with the simulated thermal model:
+---
 
-(400 - 25) / 500 = 0.75
-Tools and Technologies
-ESP32
-Wokwi
-GNU Octave
-PID Control
-PWM Control
-Control-System Modelling
-First-Order Transfer Functions
-Embedded C/C++
-Serial Monitoring
-Repository Structure
+## Steady-State Heater Power
+
+For the simulated thermal model:
+
+```text
+Tambient = 25 °C
+K        = 500
+Ttarget  = 400 °C
+```
+
+The required normalized steady-state heater input is:
+
+```text
+u = (Ttarget - Tambient) / K
+
+u = (400 - 25) / 500
+
+u = 0.75
+```
+
+Therefore:
+
+```text
+Heater Power = 75%
+```
+
+The corresponding ESP32 PWM value is:
+
+```text
+PWM = 0.75 × 255
+
+PWM = 191.25
+```
+
+This agrees with the final Wokwi simulation result.
+
+---
+
+## GNU Octave Analysis
+
+GNU Octave was used for:
+
+- First-order process modelling
+- Thermal response simulation
+- PID controller simulation
+- Anti-windup implementation
+- PID gain comparison
+- Performance metric calculation
+- Setpoint tracking analysis
+
+The Octave scripts are available in the:
+
+```text
+octave/
+```
+
+directory.
+
+---
+
+## Wokwi Simulation Files
+
+The ESP32 simulation files are stored in:
+
+```text
+wokwi/
+```
+
+This directory contains:
+
+```text
+sketch.ino
+diagram.json
+```
+
+`sketch.ino` contains the ESP32 PID controller and simulated thermal process.
+
+`diagram.json` contains the Wokwi circuit configuration.
+
+---
+
+## Simulation Results
+
+Simulation plots and validation images are stored in:
+
+```text
+results/
+```
+
+These results include PID response analysis, gain comparison, and setpoint tracking tests.
+
+---
+
+## Tools and Technologies
+
+- ESP32
+- Wokwi
+- GNU Octave
+- Embedded C/C++
+- PID Control
+- PWM Control
+- Control-System Modelling
+- First-Order Transfer Functions
+- Serial Monitoring
+
+---
+
+## Repository Structure
+
+```text
 Smart-Pyrolysis-PID-Control/
-|
-|-- README.md
-|
-|-- wokwi/
-|   |-- sketch.ino
-|   |-- diagram.json
-|
-|-- octave/
-|   |-- pyrolysis_pid_simulation.m
-|   |-- pid_comparison.m
-|   |-- pid_setpoint_test.m
-|
-|-- results/
-|   |-- simulation result images
-Project Limitations
+│
+├── README.md
+│
+├── wokwi/
+│   ├── sketch.ino
+│   └── diagram.json
+│
+├── octave/
+│   ├── pyrolysis_pid_simulation.m
+│   ├── pid_comparison.m
+│   └── pid_setpoint_test.m
+│
+└── results/
+    └── simulation result images
+```
 
-This project currently represents a simulation-based control-system study.
+---
 
-The values used for process gain and thermal time constant are assumed simulation parameters and were not obtained through system identification of a physical pyrolysis reactor.
+## Project Limitations
 
-Therefore, the current PID gains should not be directly transferred to a real high-temperature pyrolysis system without experimental modelling, controller tuning, appropriate power electronics, sensor validation, and hardware safety mechanisms.
+This project currently represents a **simulation-based control-system study**.
 
-Future Development
+The process gain and thermal time constant used in the model are assumed simulation parameters and were not obtained through experimental system identification of a physical pyrolysis reactor.
 
-Possible future extensions include:
+Therefore:
 
-experimental identification of thermal process parameters
-thermocouple-based temperature measurement
-physical low-voltage thermal control prototype
-hardware heater-driver implementation
-over-temperature protection
-sensor-fault detection
-real-time monitoring interface
-comparison between simulated and experimental responses
+- The selected PID gains have only been validated within the simulated model.
+- A physical heating element was not controlled in this stage of the project.
+- Real thermocouple measurements were not used for the current simulation.
+- Real pyrolysis systems may have nonlinear behaviour, delays, disturbances, and operating constraints that are not represented by this simplified first-order model.
+- The current PID gains should not be transferred directly to a real high-temperature system without system identification, retuning, appropriate hardware, and safety protection.
+
+---
+
+## Future Development
+
+Future development may include:
+
+- Experimental identification of thermal process parameters
+- Thermocouple-based temperature measurement
+- Physical low-voltage thermal control prototype
+- Heater-driver circuit implementation
+- Hardware PID validation
+- Over-temperature protection
+- Sensor-fault detection
+- Real-time monitoring interface
+- Data logging
+- Comparison of simulated and experimental temperature responses
+
+---
+
+## Project Status
+
+**Current stage:** Simulation, PID tuning, and ESP32/Wokwi validation completed.
+
+**Next stage:** Hardware-oriented development and experimental thermal-process validation.
