@@ -304,15 +304,29 @@ diagram.json
 
 ## Simulation Results
 
-Simulation plots and validation images are stored in:
+### PID Temperature Response
 
-```text
-results/
-```
+The selected PID controller regulates the simulated thermal process toward the 400 °C setpoint.
 
-These results include PID response analysis, gain comparison, and setpoint tracking tests.
+![PID Temperature Response](results/After%20tuning2.jpg)
 
----
+### Heater Power Response
+
+The heater initially operates at high power to increase the process temperature and then reduces its output as the temperature approaches the setpoint.
+
+![PID Heater Power Response](results/after%20tuning%201.jpg)
+
+### PID Tuning Comparison
+
+Three PID parameter sets were evaluated to compare their transient and steady-state performance. Set C (`Kp = 2.0`, `Ki = 0.04`, `Kd = 3.0`) provided the fastest response among the tested configurations while maintaining zero simulated overshoot.
+
+![PID Tuning Comparison](results/comparison.jpg)
+
+### Setpoint Tracking Test
+
+The controller was also evaluated under changing temperature references of 400 °C, 350 °C, and 450 °C to examine its ability to follow different operating setpoints.
+
+![PID Setpoint Tracking](results/setpoint%20test.jpg)
 
 ## Tools and Technologies
 
